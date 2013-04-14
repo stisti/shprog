@@ -7,10 +7,6 @@
 Shell Programming Pitfalls and Style Guide
 ==========================================
 
-------------------------------
-Sami Tikka <sami.tikka@iki.fi>
-------------------------------
-
 Introduction
 ============
 
@@ -30,8 +26,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-
-.. include:: part01/part01.rst
+   part01/part01.rst
 
 
 
