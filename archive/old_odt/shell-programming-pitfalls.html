@@ -1,0 +1,310 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-15">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 1.0  (Linux)">
+	<META NAME="AUTHOR" CONTENT="Sami Tikka">
+	<META NAME="CREATED" CONTENT="20020710;11380400">
+	<META NAME="CHANGEDBY" CONTENT="Sami Tikka">
+	<META NAME="CHANGED" CONTENT="20020720;12505800">
+	<STYLE>
+	<!--
+		@page { margin: 2cm }
+		P { margin-bottom: 0.21cm }
+		P.western { font-family: "Times New Roman" }
+		H1 { margin-bottom: 0.21cm }
+		H1.western { font-family: "Albany", sans-serif; font-size: 16pt }
+		H1.cjk { font-size: 16pt }
+		H1.ctl { font-size: 16pt }
+		H2 { margin-bottom: 0.21cm }
+		H2.western { font-family: "Albany", sans-serif; font-size: 14pt; font-style: italic }
+		H2.cjk { font-size: 14pt; font-style: italic }
+		H2.ctl { font-size: 14pt; font-style: italic }
+		PRE.code-sample-western { margin-left: 2.2cm; font-family: "Lucida Console" }
+		PRE.code-sample-cjk { margin-left: 2.2cm }
+		PRE.code-sample-ctl { margin-left: 2.2cm }
+		A.western:link { font-family: "Lucida Console"; font-size: 10pt }
+		CODE.western { font-family: "Lucida Console"; font-size: 10pt }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US">
+<P ALIGN=CENTER STYLE="margin-top: 0.42cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=5><B>Shell
+Programming Pitfalls and Styleguide</B></FONT></FONT></P>
+<P CLASS="western">Author: Sami Tikka, <A CLASS="western" HREF="mailto:sti@iki.fi">sti@iki.fi</A></P>
+<P CLASS="western">Contributions by: Jonas Berlin, <A CLASS="western" HREF="mailto:jonas@berlin.vg">jonas@berlin.vg</A></P>
+<P CLASS="western"><SPAN STYLE="font-weight: medium">After</SPAN>
+having written and read a lot of shell scripts, I've began to see
+that there are some common mistakes the novice script writers do.
+Often the scripts do work, but they are not easy to read. Every
+programming language has its own idioms, ways of doing common things.
+It's the same with shell scripts. The following tutorial tries to
+help the novice to learn these idioms and thus become a better script
+writer.</P>
+<H1 CLASS="western">True and False Reversed</H1>
+<P CLASS="western">Every UNIX process has an exit value which is made
+available to the parent process. A long-standing convention states
+that the exit value zero indicates success and any other value some
+kind of error.</P>
+<P CLASS="western">Since every command used in a shell script is a
+UNIX process, the same applies: zero is true and anything else is
+false. This runs contrary to the established convention from the C
+language where zero is false and anything else is true. However, if
+one manages to unlearn what has been taught in the C classes, life
+becomes much easier for the script writer. 
+</P>
+<P CLASS="western">Let's look at some examples. The script below is
+what a novice shell-scripter usually writes:</P>
+<PRE CLASS="code-sample-western">grep pattern file
+ret=$?
+if [ $ret -eq 0 ]; then
+	echo 'Found it!'
+else
+	echo 'Not found'
+fi</PRE><P CLASS="western">
+Compare that with the script from a more seasoned professional:</P>
+<PRE CLASS="code-sample-western">if grep pattern file; then
+	echo 'Found it!'
+else
+	echo 'Not found'
+fi</PRE><P CLASS="western">
+The pro might even pull it off using a one-liner:</P>
+<PRE CLASS="code-sample-western">grep pattern file &amp;&amp; echo 'Found it!' || echo 'Not found'</PRE><H1 CLASS="western">
+Quoting For Fun and Profit</H1>
+<P CLASS="western">Quoting is simple, at least in principle. There
+are just two types of quotes: single quotes ('') and double quotes
+(&ldquo;&rdquo;). Shell variables are expanded inside double quotes.
+Nothing is expanded inside single quotes. Any quotes disable filename
+expansion. What this all means is that it is usually a good practice
+to enclose variables that may contain filenames into double quotes.
+You'll never know when you encounter a filename with a space in it.</P>
+<P CLASS="western">Another difficult area is nested quoting. This
+kind of situation can arise for example when passing shell variables
+into an awk or perl script. See this script that prints out the login
+shell of a user.</P>
+<PRE CLASS="code-sample-western">awk -F: '$1 == &quot;'&rdquo;$1&rdquo;'&quot; { print $7 }' /etc/passwd</PRE><P CLASS="western">
+The first single quote is interpreted by the shell, which means the
+next double quote is passed to awk as is. The second $1 is found
+quoted in double quotes, so the shell replaces it with the first
+command line argument. The double quotes are needed just in case the
+$1 contains spaces. Then the single quotes protect the rest of the
+awk script from expansion. The script which is seen by the awk
+interpreter is (assuming 'ftp' was the first argument):</P>
+<PRE CLASS="code-sample-western">$1 == &quot;ftp&quot; { print $7 }</PRE><P CLASS="western">
+<BR><BR>
+</P>
+<H1 CLASS="western">Grep Has an Exit Value</H1>
+<P CLASS="western">It is common for the novice scripter to check for
+the output of the grep command. Look at the code sample below:</P>
+<PRE CLASS="code-sample-western">isdriverloaded() {
+    addeddriver=`modinfo | grep fsvpn`
+    if [ -z &quot;$addeddriver&quot; ]; then
+        return 0
+    fi
+    return 1
+}</PRE><P CLASS="western">
+What we really want to know is if grep found any lines matching the
+pattern. The grep command has a useful exit value, it returns zero
+(success) if one or more matches were found. So, instead of storing
+the (possibly large) output from grep, which we really don't care
+about, we should be checking grep's exit value. Note that the script
+writer has also committed the sin described in the previous section:
+failing to grasp that zero is true and 1 is false. A better version
+of the function would read:</P>
+<PRE CLASS="code-sample-western">isdriverloaded() {
+	modinfo | grep fsvpn &gt;/dev/null
+}</PRE><P CLASS="western">
+To learn why it works, look at the explanation in the next section.</P>
+<H1 CLASS="western">Invisible Exit Value</H1>
+<P CLASS="western">Shell functions always return a value, even when
+there is no return statement anywhere in the function. In such a case
+the exit value will be the exit value of the last process executed in
+the shell function. Consider the following function:</P>
+<PRE CLASS="code-sample-western">stop() {
+	[ -x /etc/init.d/service ] &amp;&amp; /etc/init.d/service stop
+}</PRE><P CLASS="western">
+If you are checking the exit value from this function, you might be
+surprised. The exit value may not be the exit value of the
+<CODE CLASS="western">/etc/init.d/service</CODE>. If the file
+<CODE CLASS="western">/etc/init.d/service</CODE> was not executable
+or did not exist at all, the function would return a value indicating
+failure. You might be well adviced to add an explicit <CODE CLASS="western">return
+0</CODE> to the end of the function.</P>
+<P CLASS="western">Of course, sometimes this behaviour is exactly
+what you want:</P>
+<PRE CLASS="code-sample-western">isrunning() {
+	[ -e /var/run/daemon.pid ] &amp;&amp; \
+	kill -0 `cat /var/run/daemon.pid` 2&gt;/dev/null
+}</PRE><H1 CLASS="western">
+Using Bashisms and Gnuisms</H1>
+<P CLASS="western">Bash, the Bourne Again shell from the GNU project,
+is pretty popular these days with Linux everywhere you look. However,
+there are still a couple of other UNIX flavours hanging around and
+Bash is not usually installed there. Shell scripts should try to be
+as operating system independent as possible. The only way to
+accomplish this is to only use features present in the original
+Bourne shell, the /bin/sh. This can be tricky because these days most
+script writers have been brought up on Linux. They are used to using
+the nifty features of bash and other GNU tools. They are absolutely
+dumbfounded when they have to make their script run on Solaris or
+HP-UX for the first time. Here is a list of things I've come across
+that will fail on non-Linux platforms:</P>
+<H2 CLASS="western">Use of bang (!) to negate the exit value of a
+process.</H2>
+<P CLASS="western">You need to do something when a condition is not
+true:</P>
+<PRE CLASS="code-sample-western">if ! isrunning; then
+	startit
+fi</PRE><P CLASS="western">
+This only works in bash. For /bin/sh you should use</P>
+<PRE CLASS="code-sample-western">if isrunning; then : else
+	startit
+fi</PRE><P CLASS="western">
+Actually, I believe a more readable solution is</P>
+<PRE CLASS="code-sample-western">isrunning || startit</PRE><H2 CLASS="western">
+Use of $(( )) for arithmetic evaluation</H2>
+<P CLASS="western">In bash you can do</P>
+<PRE CLASS="code-sample-western">a=$((5 * 6 + 2))</PRE><P CLASS="western">
+But in the one true shell the only command that knows arithmetic is
+<CODE CLASS="western">expr.</CODE></P>
+<PRE CLASS="code-sample-western">a=`expr 5 \* 6 + 2`</PRE><H2 CLASS="western">
+Use of tilde (~) to reference the home directory</H2>
+<P CLASS="western">In bash you can use the tilde (<CODE CLASS="western">~</CODE>)
+to refer to your home directory and <CODE CLASS="western">~user </CODE>to
+refer to a specified user's home directory.</P>
+<P CLASS="western">In the one true shell your home directory is
+<CODE CLASS="western">$HOME</CODE>. Someone else's home directory can
+only be found by looking it up from <CODE CLASS="western">/etc/passwd</CODE>.</P>
+<PRE CLASS="code-sample-western">awk -F: '$1 == &ldquo;user&rdquo; { print $6 }' /etc/passwd</PRE><H2 CLASS="western">
+Use of &gt;&amp; to redirect both stdout and stderr</H2>
+<P CLASS="western">In bash (and csh) you can redirect both standard
+output and standard error streams to a file with a convenient
+shorthand.</P>
+<PRE CLASS="code-sample-western">command &gt;&amp;file</PRE><P CLASS="western">
+But in the one true shell you have to spell it out in full.</P>
+<PRE CLASS="code-sample-western">command &gt;file 2&gt;&amp;1</PRE><H1 CLASS="western">
+Order of Redirections</H1>
+<P CLASS="western">What is the difference of the following command
+lines?</P>
+<PRE CLASS="code-sample-western">command &gt;file 2&gt;&amp;1
+command 2&gt;&amp;1 &gt;file</PRE><P CLASS="western">
+The first is the one you probably wanted. It reads like this:
+&ldquo;Redirect standard output to a file. Then redirect standard
+error to where standard output is attached.&rdquo; Both streams will
+be written to the same file.</P>
+<P CLASS="western">The second command line reads: &ldquo;Redirect
+standard error to where standard output is attached (probably a
+terminal). Then redirect standard output to a file.&rdquo; The errors
+will appear on the terminal and output will be written to the file.</P>
+<P CLASS="western">There are two things to remember. One, the
+redirections are processed from left to right. Two, the notation <CODE CLASS="western">2&gt;&amp;1
+</CODE>does not make stderr to go stdout, instead it attaches stderr
+to where stdout was attached <I>at this moment</I>. In the second
+case above, the standard output was still connected to the terminal
+when the first redirection was being processed.</P>
+<P CLASS="western">OK, then how do you pipe both stdout and stderr to
+another command?</P>
+<PRE CLASS="code-sample-western">make 2&gt;&amp;1 | less</PRE><H1 CLASS="western">
+Backticks and Command Line Length</H1>
+<P CLASS="western">Many programmers know that the maximum length of a
+command is very limited in MS-DOS. UNIX programmers seem to think
+they have an infinite command length or at least the length is so
+long they don't have to worry about it. The prime example is what
+happens when you put the find command inside backticks.</P>
+<PRE CLASS="code-sample-western">Wc -l `find . -type f`</PRE><P CLASS="western">
+This works fine as long as the number of files printed by the find is
+less than the maximum command line length of the operating system. It
+might work for you when you test it. But does it work for someone
+using your script? Why not by sure and use xargs?</P>
+<PRE CLASS="code-sample-western">find . -type f | xargs wc -l</PRE><P CLASS="western">
+By the way, both of the above will fail miserably if there are
+filenames with spaces. There is no way to make the first command work
+properly. The second command can be made to work with minor
+modifications:</P>
+<PRE CLASS="code-sample-western">find . -type f | xargs -L 1 -I xxx wc -l xxx</PRE><P CLASS="western">
+The <CODE CLASS="western">-L 1 </CODE>will make it treat each line as
+separate argument. The <CODE CLASS="western">-I xxx </CODE>is
+necessary to make the argument properly available to <CODE CLASS="western">wc</CODE>.</P>
+<H1 CLASS="western">$@ vs. $*</H1>
+<P CLASS="western">Often you write a small script to act as a
+front-end to some other utility. Typically these scripts check invoke
+some process with all the remaining command line arguments. Some
+script-writers use the <CODE CLASS="western">$*</CODE> and some <CODE CLASS="western">$@</CODE>.
+Is there a difference? Does it matter? Yes it does.</P>
+<P CLASS="western">First of all, both <CODE CLASS="western">$@</CODE>
+and <CODE CLASS="western">$*</CODE> need to be enclosed in double
+quotes to work properly (<CODE CLASS="western">&ldquo;$@&rdquo;</CODE>
+and <CODE CLASS="western">&ldquo;$*&rdquo;</CODE>). Unquoted, they
+behave the same. Let's examine the issue with some examples. First,
+let's write a script called <CODE CLASS="western">printargs.sh</CODE>
+that only prints it arguments.</P>
+<PRE CLASS="code-sample-western">#!/bin/sh
+for a; do
+        echo &quot;$a&quot;
+done</PRE><P CLASS="western">
+Then write a script called <CODE CLASS="western">argtest.sh</CODE>
+that tries out the different possibilities.</P>
+<PRE CLASS="code-sample-western">#!/bin/sh
+echo 'Using $@'
+./printargs.sh $@
+echo 'Using $*'
+./printargs.sh $*
+echo 'Using &quot;$@&quot;'
+./printargs.sh &quot;$@&quot;
+echo 'Using &quot;$*&quot;'
+./printargs.sh &quot;$*&quot;</PRE><P CLASS="western">
+Then we execute it and see the following output.</P>
+<PRE CLASS="code-sample-western">./argtest.sh &ldquo;1 2&rdquo; 3
+Using $@
+1
+2
+3
+Using $*
+1
+2
+3
+Using &quot;$@&quot;
+1 2
+3
+Using &quot;$*&quot;
+1 2 3</PRE><P CLASS="western">
+As you see, usually you want the behaviour of the <CODE CLASS="western">&ldquo;$@&rdquo;</CODE>.
+Anything else will bite you in the backside when someone gives your
+script an argument that contains a space.</P>
+<H1 CLASS="western">My Variables Have Vanished!</H1>
+<P CLASS="western">It is easy to fall into the trap of thinking all
+the shell variables are global. They are not. They are global in one
+shell instance, but you might not realize that you have instantiated
+a new sub shell where your code is creating new variables or changing
+the old ones. Everything works fine until the code exits the sub
+shell and returns to the parent and the variables have magically
+disappeared or reverted to their original values.</P>
+<P CLASS="western"><SPAN STYLE="background: #ffff00">[This thing
+about shell functions does not seem to be true.]</SPAN> Shell code
+executing in a shell function is actually executed in a sub shell.
+Variables created there are not available in the parent shell i.e.
+the calling code.</P>
+<PRE CLASS="code-sample-western">fixdisplay() {
+	DISPLAY=fixeddisplay
+}
+fixdisplay
+# DISPLAY is still broken</PRE><P CLASS="western">
+The only way to pass information from the shell function to the
+caller is via the return value or echoing the returned data to
+stdout. The caller should then enclose the function in backticks to
+capture the output.</P>
+<PRE CLASS="code-sample-western">DISPLAY=`fixdisplay`</PRE><P CLASS="western">
+Also, shell code executing inside parenthesis is running in a sub
+shell. 
+</P>
+<PRE CLASS="code-sample-western">false || ( var=value ; true)</PRE><P CLASS="western">
+The value of <CODE CLASS="western">var</CODE> is not available on the
+next line.</P>
+<H1 CLASS="western">Required Readings</H1>
+<P CLASS="western">S.R. Bourne &ldquo;An Introduction to the Unix
+Shell&rdquo;, <A CLASS="western" HREF="http://www.iki.fi/era/unix/shell.html">http://www.iki.fi/era/unix/shell.html</A></P>
+<P CLASS="western">Era Eriksson &ldquo;Useless Use of Cat Award&rdquo;,
+<A CLASS="western" HREF="http://www.iki.fi/era/unix/award.html">http://www.iki.fi/era/unix/award.html</A></P>
+</BODY>
+</HTML>

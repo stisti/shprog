@@ -1,0 +1,781 @@
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+
+  
+
+  
+  table {
+    font-size: 1em;
+  }
+
+  
+  div, address, ol, ul, li, option, select { 
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+
+  p {
+    margin: 0px;
+  }
+
+  body {
+    padding: 0px;
+    
+    
+      margin: 0px;
+    
+  }
+
+  h6 { font-size: 10pt }
+  h5 { font-size: 11pt }
+  h4 { font-size: 12pt }
+  h3 { font-size: 13pt }
+  h2 { font-size: 14pt }
+  h1 { font-size: 16pt }
+
+  blockquote {padding: 10px; border: 1px #DDDDDD dashed }
+
+  a img {border: 0}
+
+  
+  
+
+  
+  body {
+    font-family: Arial;
+    
+    font-size: 10.0pt;
+    line-height: normal;
+    background-color: #ffffff;
+  }
+
+
+
+
+</style>
+
+
+</head>
+
+
+<body revision="dgzvnsxt_5ds9p8j:277">
+
+<p align=center style="MARGIN-TOP:0.42cm; page-break-after:avoid">
+  <font face="Albany, sans-serif"><font size=5><b>Shell Programming Pitfalls and
+  Style-guide</b></font></font>
+</p>
+<p class=western>
+  <br>
+</p>
+<p class=western style=TEXT-ALIGN:center>
+  Author: Sami Tikka
+</p>
+<div style=TEXT-ALIGN:center>
+</div>
+<p class=western style=TEXT-ALIGN:center>
+  Contributions by: Jonas Berlin, Timo Metsälä
+</p>
+<p class=western>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  After having written and read a lot of shell scripts, I began to see there are
+  some common mistakes the novice script writers do. Often the scripts seem to
+  work, but they are hard to read, inefficient or they might fail when they are
+  run in a way their author did not expect. Every programming language has its
+  own idioms, ways of doing things, kind of like rules of thumb. It's the same
+  with shell scripts. The following tutorial tries to help the novice to learn
+  these idioms and thus become a better script writer.
+</p>
+<h1 class=western>
+  True and False Reversed
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Every UNIX process has an exit value which is made available to the parent
+  process. A long-standing convention states that the exit value zero indicates
+  success and any other value some kind of error.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  Since every command used in a shell script is a UNIX process, the same
+  applies: zero is true and anything else is false. This runs contrary to the
+  established convention from the C language where zero is false and anything
+  else is true. However, if one manages to unlearn what has been taught in the C
+  classes, life becomes much easier for the script writer.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br class=webkit-block-placeholder>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  Let's look at some examples. The script below is what a novice shell-scripter
+  usually writes:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">grep pattern file<br>ret=$?<br>if [ $ret -eq 0 ]; then<br>	echo 'Found it!'<br>else<br>	echo 'Not found'<br>fi</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  Compare that with the script from a more seasoned professional:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">if grep pattern file; then<br>	echo 'Found it!'<br>else<br>	echo 'Not found'<br>fi</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  The pro might even pull it off using a one-liner:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">grep pattern file &amp;&amp; echo 'Found it!' || echo 'Not found'</pre>
+</blockquote>
+<h1 class=western>
+  Commands Usually Have a Useful Exit Value
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  It is common for the novice scripter to check for the output of the grep
+  command. Look at the code sample below:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">isdriverloaded() {<br>    addeddriver=`modinfo | grep fsvpn`<br>    if [ -z "$addeddriver" ]; then<br>        return 0<br>    fi<br>    return 1<br>}</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  What we really want to know is if grep found any lines matching the pattern.
+  The grep command has a useful exit value, it returns zero (success) if one or
+  more matches were found. So, instead of storing the (possibly large) output
+  from grep, which we really don't care about, we should be checking grep's exit
+  value. Note that the script writer has also committed the sin described in the
+  previous section: failing to grasp that zero is true and 1 is false. A better
+  version of the function would read:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">isdriverloaded() {<br>	modinfo | grep fsvpn &gt;/dev/null<br>}</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  To learn why it works, look at the explanation in the next section.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br class=webkit-block-placeholder>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  The <span style="FONT-FAMILY:Courier New">tty</span> command prints the name
+  of the terminal device the process is attached to, or "not a tty" if there is
+  no terminal. Again, the novice would capture the output of the
+  <span style="FONT-FAMILY:Courier New">tty</span> command and check that
+  somehow:
+</p>
+<blockquote>
+  <font class=Apple-style-span face="'Courier New'">if&nbsp;[&nbsp;"`tty`"&nbsp;=&nbsp;"not&nbsp;a&nbsp;tty"&nbsp;];&nbsp;then
+  </font><br>
+  <font class=Apple-style-span face="'Courier New'">&nbsp;&nbsp;&nbsp; echo "a
+  hard-to-read way of checking for tty"</font><br>
+  <font class=Apple-style-span face="'Courier New'">fi</font><br>
+</blockquote>
+<font class=Apple-style-span face="'Courier New'"><font face=Arial>or<br>
+</font></font>
+<blockquote>
+  <font face="Courier New">if tty | grep "not a tty" &gt;/dev/null;
+  then</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "just as bad"</font><br>
+  <font face="Courier New">fi</font><br>
+</blockquote>
+<font face="Courier New"><font face=Arial>We are depending on the exact output
+of that command. In the former example above, we capture the command output,
+then invoke the <span style="FONT-FAMILY:Courier New">test</span> command to
+compare it. (The <span style="FONT-FAMILY:Courier New">test</span> command is
+also known as <span style="FONT-FAMILY:Courier New">[</span>, the opening
+bracket.) In the latter example, we also invoke two processes, only this time
+they run at the same time.<br>
+<br>
+A better way would be to notice the
+<span style="FONT-FAMILY:Courier New">tty</span> command has an exit code and
+using it makes the script very readable and efficient and it would work even
+when the user's locale settings make
+<span style="FONT-FAMILY:Courier New">tty</span> talk in japanese or tagalog:<br>
+</font></font>
+<blockquote>
+  <font face="Courier New">if ! tty &gt;/dev/null; then<br>
+  &nbsp;&nbsp;&nbsp; echo "Look ma! No tty!"<br>
+  fi<br>
+  </font>
+</blockquote>
+<br>
+<h1 class=western>
+  Invisible Exit Value
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Shell functions always return a value, even when there is no return statement
+  anywhere in the function. In such a case the exit value will be the exit value
+  of the last process executed in the shell function. Consider the following
+  function:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">stop() {<br>	[ -x /etc/init.d/service ] &amp;&amp; /etc/init.d/service stop<br>}</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  If you are checking the exit value from this function, you might be surprised.
+  The exit value may not be the exit value of the <code class=western>/etc/init.d/service</code>. If the file <code class=western>/etc/init.d/service</code> was
+  not executable or did not exist at all, the function would return a value
+  indicating failure. You might be well advised to add an explicit <code class=western>return
+0</code> to the
+  end of the function.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  Of course, sometimes this behaviour is exactly what you want:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">isrunning() {<br>	[ -e /var/run/daemon.pid ] &amp;&amp; \<br>	kill -0 `cat /var/run/daemon.pid` 2&gt;/dev/null<br>}</pre>
+</blockquote>
+<h1 class=western>
+  Use true and false instead of 1 and 0<br>
+</h1>
+<span style=FONT-FAMILY:Arial>When you want to use a variable like a Boolean,
+some people do it like this:</span><br>
+<blockquote>
+  <font face="Courier New">upgrade=1</font><br>
+  <br>
+  <font face="Courier New">if [ $upgrade -eq 1 ]; then</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  do_upgrade</font><br>
+  <font face="Courier New">fi</font><br>
+</blockquote>
+<font face="Courier New"><font face=Arial>The code is much more readable when
+written like this:<br>
+</font></font>
+<blockquote>
+  <font face="Courier New"><font face=Arial><font face="Courier New">upgrade=true</font></font></font><br>
+  <br>
+  <font face="Courier New"><font face=Arial><font face="Courier New">if
+  $upgrade; then</font></font></font><br>
+  <font face="Courier New"><font face=Arial><font face="Courier New">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  do_upgrade</font></font></font><br>
+  <font face="Courier New"><font face=Arial><font face="Courier New">fi</font></font></font><br>
+</blockquote>
+<font face="Courier New"><font face=Arial><font face="Courier New"><font face=Arial>This
+is possible because there are commands true and false.
+<font face="Courier New">true<font face=Arial> is a real command that lives in
+<span style="FONT-FAMILY:Courier New">/usr/bin</span> or possibly in
+<span style="FONT-FAMILY:Courier New">/bin</span>. When you execute true, it
+does nothing except exits with code 0, which means success.<br>
+<br>
+Similarly, there is the command
+<span style="FONT-FAMILY:Courier New">false</span>, which does nothing and exits
+with code 1 meaning failure.</font></font></font></font></font></font><br>
+<h1 class=western>
+</h1>
+<h1 class=western>
+  Quoting For Fun and Profit
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Quoting is simple, at least in principle. There are just two types of quotes:
+  single quotes ('') and double quotes (“”). Shell variables are expanded inside
+  double quotes. Nothing is expanded inside single quotes. Any quotes disable
+  filename expansion. Regarding filenames, it is usually a good practice to
+  enclose variables that may contain filenames into double quotes. You'll never
+  know when you encounter a filename with a space in it. Leave the filename
+  without double quotes only when you have a filename with wildcard characters
+  in it that you want the shell to expand.<br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  Another difficult area is nested quoting. This kind of situation can arise for
+  example when passing shell variables into an awk or perl script. See this
+  script that prints out the login shell of a user.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">awk -F: '$1 == "'”$1”'" { print $7 }' /etc/passwd</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  The first single quote is interpreted by the shell, which means the next
+  double quote is passed to awk as is. The second $1 is found quoted in double
+  quotes, so the shell replaces it with the first command line argument. The
+  double quotes are needed just in case the $1 contains spaces. Then the single
+  quotes protect the rest of the awk script from expansion. The script which is
+  seen by the awk interpreter is (assuming 'ftp' was the first argument):
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">$1 == "ftp" { print $7 }</pre>
+</blockquote>
+<p>
+  Sometimes splitting quotes could become overwhelming, especially if the text
+  you want to splice in contains quotes. Then you might want to use a mechanism
+  built into awk precisely for this purpose, the -v option:<br>
+</p>
+<blockquote>
+  <span style="FONT-FAMILY:Courier New">awk -F: -v user=root '$1 == user { print
+  "login shell for", user, "is", $7 }' /etc/passwd</span>
+</blockquote>
+<p>
+  &nbsp;
+</p>
+<p>
+  The -v option originated from GNU version of awk and has since spread into
+  other awk implementations, just be aware it might not be everywhere.<br>
+</p>
+<h1 class=western>
+  Using Bashisms and Gnuisms
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Bash, the Bourne Again shell from the GNU project, is pretty popular these
+  days with Linux everywhere you look. However, there are still a couple of
+  other UNIX flavours hanging around and Bash is not usually installed there.
+  Shell scripts should try to be as operating system independent as possible.
+  The only way to accomplish this is to only use features present in the
+  original Bourne shell, the /bin/sh. This can be tricky because these days most
+  script writers have been brought up on Linux. They are used to using the nifty
+  features of bash and other GNU tools. They are absolutely dumbfounded when
+  they have to make their script run on Solaris or HP-UX for the first time.
+  Here is a list of things I've come across that will fail on non-Linux
+  platforms.
+</p>
+<h2 class=western>
+  Use of $(( )) for arithmetic evaluation
+</h2>
+<p class=western style=FONT-FAMILY:Arial>
+  In bash you can do
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">a=$((5 * 6 + 2))</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  But in the one true shell the only command that knows arithmetic is <code class=western>expr.</code>
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">a=`expr 5 \* 6 + 2`</pre>
+</blockquote>
+<h2 class=western>
+  Use of tilde (~) to reference the home directory
+</h2>
+<p class=western style=FONT-FAMILY:Arial>
+  In bash you can use the tilde (<code class=western>~</code>) to refer to your home directory and
+  <code class=western>~user </code>to refer to a specified user's home directory.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  In the one true shell your home directory is <code class=western>$HOME</code>. Someone else's home
+  directory can only be found by looking it up from <code class=western>/etc/passwd</code>.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">awk -F: '$1 == “user” { print $6 }' /etc/passwd</pre>
+</blockquote>
+<h2 class=western>
+  Use of &gt;&amp; to redirect both stdout and stderr
+</h2>
+<p class=western style=FONT-FAMILY:Arial>
+  In bash (and csh) you can redirect both standard output and standard error
+  streams to a file with a convenient shorthand.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">command &gt;&amp;file</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  But in the one true shell you have to spell it out in full.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">command &gt;file 2&gt;&amp;1</pre>
+</blockquote>
+<h1 class=western>
+  Order of Redirections
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  What is the difference of the following command lines?
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">command &gt;file 2&gt;&amp;1<br>command 2&gt;&amp;1 &gt;file</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  The first is the one you probably wanted. It reads like this: “Redirect
+  standard output to a file. Then redirect standard error to where standard
+  output is attached.” Both streams will be written to the same file.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  The second command line reads: “Redirect standard error to where standard
+  output is attached (probably a terminal). Then redirect standard output to a
+  file.” The errors will appear on the terminal and output will be written to
+  the file.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  There are two things to remember. One, the redirections are processed from
+  left to right. Two, the notation <code class=western>2&gt;&amp;1
+</code>does not make stderr to go stdout,
+  instead it attaches stderr to where stdout was attached <i>at this moment</i>.
+  In the second case above, the standard output was still connected to the
+  terminal when the first redirection was being processed.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  OK, then how do you send both stdout and stderr to another command?
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">make 2&gt;&amp;1 | less</pre>
+</blockquote>
+<p>
+  This is a special case. Above it was emphasized you <i>first</i> change where
+  stdout goes and only <i>then</i> pipe everything else to stdout. Not here. The
+  reason is you really have 2 commands connected by a pipe. Piping is not the
+  same as redirecting.<br>
+</p>
+<h1 class=western>
+  Backticks and Command Line Length
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Many programmers know that the maximum length of a command is very limited in
+  MS-DOS. UNIX programmers seem to think they have an infinite command length or
+  at least the length is so long they don't have to worry about it. The prime
+  example is what happens when you put the find command inside backticks.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">wc -l `find . -type f`</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  This works fine as long as the number of files printed by the find is less
+  than the maximum command line length of the operating system. It might work
+  for you when you test it. But does it work for someone using your script? Why
+  not be sure and use xargs?
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">find . -type f | xargs wc -l</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  By the way, both of the above will fail miserably if there are filenames with
+  spaces. There is no way to make the first command work properly. The second
+  command can be made to work with minor modifications:
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">find . -type f | xargs -I xxx wc -l xxx</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  <font class=Apple-style-span face="'Courier New'">xargs</font> will read lines
+  from its standard input and run
+  <font class=Apple-style-span face="'Courier New'">wc -l</font> with
+  <font class=Apple-style-span face="'Courier New'">xxx</font> replaced with one
+  line, over and over again until all lines from stdin are exhausted.
+  <font class=Apple-style-span face="'Courier New'">xargs</font> is free to run
+  <font class=Apple-style-span face="'Courier New'">wc -l</font> with more than
+  one argument, if the replacement of
+  <font class=Apple-style-span face="'Courier New'">xxx</font> with multiple
+  lines does not exceed the maximum command line length.
+</p>
+<h1 class=western>
+  $@ vs. $*
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  Often you write a small script to act as a front-end to some other utility.
+  Typically these scripts check invoke some process with all the remaining
+  command line arguments. Some script-writers use the <code class=western>$*</code> and some <code class=western>$@</code>. Is
+  there a difference? Does it matter? Yes it does.
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  <br>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  First of all, both <code class=western>$@</code> and <code class=western>$*</code> need to be enclosed in double quotes to
+  work properly (<code class=western style="FONT-FAMILY:Courier New">“$@”</code> and <code class=western style="FONT-FAMILY:Courier New">“$*”</code>). Unquoted, they behave the same. Let's examine
+  the issue with some examples. First, let's write a script called <code class=western>printargs.sh</code> that
+  only prints it arguments.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">#!/bin/sh<br>for a; do<br>        echo "$a"<br>done</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  Then write a script called <code class=western>argtest.sh</code> that tries out the different possibilities.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">#!/bin/sh<br>echo 'Using $@'<br>./printargs.sh $@<br>echo 'Using $*'<br>./printargs.sh $*<br>echo 'Using "$@"'<br>./printargs.sh "$@"<br>echo 'Using "$*"'<br>./printargs.sh "$*"</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  Then we execute it and see the following output.
+</p>
+<blockquote>
+  <pre class=code-sample-western style="FONT-FAMILY:Courier New">./argtest.sh “1 2” 3<br>Using $@<br>1<br>2<br>3<br>Using $*<br>1<br>2<br>3<br>Using "$@"<br>1 2<br>3<br>Using "$*"<br>1 2 3</pre>
+</blockquote>
+<p class=western style=FONT-FAMILY:Arial>
+  As you see, usually you want the behaviour of the <code class=western style="FONT-FAMILY:Courier New">“$@”</code>. Anything else will
+  bite you in the backside when someone gives your script an argument that
+  contains a space.
+</p>
+<h1 class=western>
+  Lock files
+</h1>
+Sometimes you can only have one instance of your script running. Perhaps you are
+updating some important system files and you must be sure it all works properly,
+even if two different root users are logged on and invoke your script with no
+idea another admin is already doing the same thing. Your script must take some
+kind of lock before starting to do its work and then release the lock when it is
+done.<br>
+<br>
+A lock could be the existence of a file. But how do you both create a file and
+fail to create it if it already existed? You have two possibilities: a hard link
+and a directory. Creation for both of them is an atomic operation that will fail
+if the thing already exists.<br>
+<br>
+You could do something like this:<br>
+<blockquote>
+  <font face="Courier New">echo $$ &gt; lock.$$</font><br>
+  <font face="Courier New">if ln lock.$$ lockfile; then</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "Lock acquired"</font><br>
+  <font face="Courier New">else</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "Failed to get the lock"<br>
+  fi<br>
+  </font>
+</blockquote>
+<p>
+  But what if an instance of that script died while holding the lock? You must
+  set up a trap statement that will remove the lockfile when something
+  unexpected happens.
+</p>
+<p>
+</p>
+<blockquote>
+  <font face="Courier New">trap "rm -f lock.$$ lockfile" EXIT SIGHUP SIGTERM
+  SIGINT<br>
+  </font> <font face="Courier New">echo $$ &gt; lock.$$</font><br>
+  <font face="Courier New">if ln lock.$$ lockfile; then</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "Lock acquired"</font><br>
+  <font face="Courier New">else</font><br>
+  <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "Failed to get the lock"<br>
+  fi<br>
+  </font>
+</blockquote>
+<p>
+  Something bad might still happen. Your script is killed with "kill -9" or the
+  power fails. Whatever. The fact of the matter is that when your script runs,
+  lockfile exists and it never gets the lock. That's why the lockfile is a link
+  to a file that has the PID of the process that created it. We can simply check
+  if that process exists.
+</p>
+<blockquote>
+  <p>
+    <font face="Courier New">echo $$ &gt; lock.$$<br>
+    trap "rm -f lock.$$ lockfile" EXIT SIGHUP SIGTERM SIGINT<br>
+    </font> <font face="Courier New">if ln lock.$$ lockfile; then</font><br>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp; echo "Lock acquired"</font><br>
+    <font face="Courier New">else</font>
+  </p>
+  <p>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <span style="FONT-FAMILY:Courier New">lockholder=`cat lockfile`</span>
+  </p>
+  <p>
+    <span style="FONT-FAMILY:Courier New">&nbsp;&nbsp;&nbsp; if kill -0
+    $lockholder; then</span><br>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;echo
+    "Failed to get the lock, lock is held by $lockholder"</font>
+  </p>
+  <p>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp; else</font>
+  </p>
+  <p>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rm -f
+    lockfile</font>
+  </p>
+  <p>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo
+    "Lock was held by $lockholder (died), try again now"<br>
+    </font>
+  </p>
+  <p>
+    <font face="Courier New">&nbsp;&nbsp;&nbsp; fi<br>
+    </font>
+  </p>
+  <p>
+    <font face="Courier New"> fi</font>
+  </p>
+</blockquote>
+<p>
+  Something like that. Or you could have a loop trying the hard link over and
+  over as long as it takes for it to succeed.
+</p>
+<p>
+  <br>
+</p>
+<p>
+  But what if the process-id read from the lockfile is an existing process, it's
+  just not an instance of your script? Now things get tricky. In general, there
+  might not be a portable solution, but if you can forget portability, there are
+  things you can do.
+</p>
+<br>
+<p>
+  If you can check when a process was launched, you can compare it against the
+  modification time of lockfile. If they are reasonably close, then the creator
+  of the lockfile is probably still alive.
+</p>
+<br>
+<p>
+  Handling lock files correctly is a difficult problem that few programs get
+  right. A better way would be to make lockfile be a unix domain socket instead
+  of a file. Then checking if the lock holder was still alive would be a simple
+  matter of connecting to the socket. If the connection was refused, there was
+  no-one home. If the connection was established, you could talk to the other
+  end and ask if the lock holder was still ok. Possibly the lock holder could
+  even reply with an estimate of how long it is going to hold the lock. But, if
+  the connection was refused, you would have to remove the stale socket and try
+  bind a new one.<br>
+</p>
+<br>
+<p>
+  Unix domain sockes, unfortunately, are not easily manipulated from a shell
+  script. You could make a Perl script that created the socket and responded to
+  anyone connecting to it. But then you would need to run that Perl script in
+  the background, executing in parallel with your script. Which you can do, just
+  see below.
+</p>
+<br>
+<p>
+  Another possibility would be to use advisory file locks (flock/fcntl/lockf)
+  but again, they are not accessible to shell scripts, but they are to Perl. The
+  advantage of file locks is they are unlocked by the operating system if the
+  process holding the lock should die.
+</p>
+<br>
+<p>
+  You could use a helper like this:
+</p>
+<blockquote style="FONT-FAMILY:Courier New">
+  #!/usr/bin/perl -w<br>
+  # Lockfile helper by Sami Tikka 2007<br>
+  #<br>
+  # Usage from a shell script:<br>
+  # lockholder=`lockfile PATH_TO_LOCKFILE` || exit 1<br>
+  # echo "Lock acquired"<br>
+  # echo "Doing my thing"<br>
+  # echo "Releasing lock"<br>
+  # kill $lockholder<br>
+  #<br>
+  use strict;<br>
+  use Fcntl ':flock';<br>
+  <br>
+  die "USAGE: lockfile PATH_TO_LOCKFILE" if $#ARGV != 0;<br>
+  <br>
+  my $lockfile = shift @ARGV;<br>
+  my $LOCK;<br>
+  my $signaled = 0;<br>
+  $SIG{'INT'}&nbsp; = sub { $signaled++ };<br>
+  $SIG{'TERM'} = sub { $signaled++ };<br>
+  <br>
+  open($LOCK, '&gt;', $lockfile) or die "Cannot open $lockfile: $!";<br>
+  flock($LOCK, LOCK_EX|LOCK_NB) or exit 1;<br>
+  my $lockholder = fork();<br>
+  # Parent prints the PID of child who will hang around and hold the lock<br>
+  if ($lockholder &gt; 0) {<br>
+  &nbsp;&nbsp;&nbsp; print "$lockholder\n";<br>
+  &nbsp;&nbsp;&nbsp; exit 0;<br>
+  }<br>
+  sleep;<br>
+  flock($LOCK, LOCK_UN);<br>
+  close($LOCK);<br>
+  exit 0;<br>
+</blockquote>
+<p>
+  The shell script would acquire the lock by running the Perl script, capturing
+  Perl's standard output and verifying its exit code. If the exit code was
+  nonzero, lock was not acquired. If the exit code was zero, standard output
+  will contain the id of the process that needs to be killed to release the
+  lock.<br>
+</p>
+<p>
+  <br>
+</p>
+<h1>
+  Doing more than one thing at the same time<br>
+</h1>
+Normally your script only has one thread of execution, it runs the commands one
+at a time, or one pipeline at a time. Sometimes you need to do more. For
+example, you might want to run a script which takes a long time and you want to
+make sure it does not take more than 3 hours.<br>
+<h1>
+  Assumption is the mother of all ...<br>
+</h1>
+<h2>
+  Locale and language
+</h2>
+These days users of modern Unix systems expect the operating system and
+applications to be localized. This is a benefit to the end-users who might not
+be fluent in English, but it is bad for the script writer: Applications might
+produce output which is completely different from what you expect. Also, you may
+get bug reports from your users with error messages in japanese or some other
+language you don't know that well.<br>
+<br>
+The careful scripter will put these lines somewhere at the beginning of their
+script:<br>
+<blockquote>
+  <font face="Courier New">LANG=C<br>
+  export LANG<br>
+  </font>
+</blockquote>
+This will make everything executed after it use the "C" locale, where programs
+produce standardized output and error messages, in English.<br>
+<br>
+If your script needs to produce localized output, you can capture the user's
+locale settings before replacing them with your own:<br>
+<blockquote>
+  <font face="Courier New">user_locale=`locale`<br>
+  </font>
+</blockquote>
+<p>
+  If needed, you can restore them with:
+</p>
+<blockquote>
+  <p>
+    <font face="Courier New">eval $user_locale</font><br>
+  </p>
+</blockquote>
+<h2>
+  PATH lookup
+</h2>
+If your script needs /usr/bin/X11 to be in PATH, do not assume it is there. If
+you need something to be in PATH, add it there.<br>
+<h2>
+  UMASK and default permissions
+</h2>
+When your script creates files, even temporary files, you might want to be
+explicit with the permissions they are created with. If your script deals with
+user's data and the point of the script is not to share the data, set umask to
+0066. It is better to create files with tight permissions and then relax for
+those few files that need relaxing. If you create files that are world-readable
+and then remove the world-readability after creation, there will be a window of
+time during which the file will be readable by everyone and sometimes that is
+all the attacker needs.<br>
+<h2>
+  Echo does not support -n or -e
+</h2>
+Sometimes you want to be fancy in your printouts, you want to prevent
+<span style="FONT-FAMILY:Courier New">echo</span> from printing the newline at
+the end of the line or something else: you want to call
+<span style="FONT-FAMILY:Courier New">echo</span> with the -n or -e option.
+Couple of points:<br>
+<br>
+First, when you call <span style="FONT-FAMILY:Courier New">echo</span>, it might
+be a shell built-in command or it might be
+<span style="FONT-FAMILY:Courier New">/bin/echo</span>. They might behave
+differently.<br>
+<br>
+Second, the <span style="FONT-FAMILY:Courier New">echo</span> you call might not
+support -n or -e or either.<br>
+<br>
+It is best to use <span style="FONT-FAMILY:Courier New">echo</span> without
+options and when you need better control for printout, use
+<span style="FONT-FAMILY:Courier New">printf</span>.<br>
+<br>
+<h1 class=western>
+  Required Readings
+</h1>
+<p class=western style=FONT-FAMILY:Arial>
+  S.R. Bourne “An Introduction to the Unix Shell”,
+  <a class=western href=http://www.iki.fi/era/unix/shell.html>http://www.iki.fi/era/unix/shell.html</a>
+</p>
+<p class=western style=FONT-FAMILY:Arial>
+  Era Eriksson “Useless Use of Cat Award”,
+  <a class=western href=http://www.iki.fi/era/unix/award.html>http://www.iki.fi/era/unix/award.html</a>
+</p></body>
+</html>
