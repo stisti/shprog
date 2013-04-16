@@ -27,6 +27,8 @@ Contents:
    :maxdepth: 2
 
    part01/part01.rst
+   part02/part02.rst
+   appendix/appendix.rst
 
 
 

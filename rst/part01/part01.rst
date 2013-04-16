@@ -54,7 +54,7 @@ To learn why it works, look at the explanation in the next section.
 
 The tty command prints the name of the terminal device the process is attached to, or "not a tty" if there is no terminal. Again, the novice would capture the output of the tty command and check that somehow::
 
-    if [ "`tty`" = "not a tty" ]; then 
+    if [ "`tty`" = "not a tty" ]; then
         echo "a hard-to-read way of checking for tty"
     fi
 
